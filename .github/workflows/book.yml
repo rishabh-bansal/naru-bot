@@ -1,0 +1,83 @@
+name: Naru Booking Run
+
+on:
+  # Monday 14:20 UTC = 7:50 PM IST. Script sleeps precisely until 8 PM.
+  # GitHub cron has ~30-60s drift, so we fire 10 min early and let the script time itself.
+  schedule:
+    - cron: '20 14 * * 1'
+
+  # Manual trigger for testing — use this to dry-run any day.
+  workflow_dispatch:
+    inputs:
+      target_time:
+        description: 'IST time HH:MM:SS.mmm (default 20:00:00.000)'
+        required: false
+        default: '20:00:00.000'
+      target_date:
+        description: 'YYYY-MM-DD (blank = next Monday)'
+        required: false
+        default: ''
+      observe_only:
+        description: 'Observation mode (no real booking)'
+        type: boolean
+        required: false
+        default: false
+      dry_run:
+        description: 'Dry run (skip booking POST entirely)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright system deps (Ubuntu 24)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libasound2t64 libatk-bridge2.0-0 libatk1.0-0 libcups2 \
+            libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
+            libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xvfb
+
+      - name: Install Python deps
+        working-directory: booker
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Show runner geo (for unknown #5 latency)
+        run: |
+          curl -s https://ipinfo.io | head -20 || true
+
+      - name: Run booker
+        working-directory: booker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SUPABASE_URL:       ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:       ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PAY_BASE_URL:       ${{ secrets.PAY_BASE_URL }}
+          TARGET_TIME:        ${{ github.event.inputs.target_time || '20:00:00.000' }}
+          TARGET_DATE:        ${{ github.event.inputs.target_date || '' }}
+          OBSERVE_ONLY:       ${{ github.event.inputs.observe_only || 'false' }}
+          DRY_RUN:            ${{ github.event.inputs.dry_run || 'false' }}
+        run: python book.py
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-logs-${{ github.run_id }}
+          path: booker/logs/
+          retention-days: 30
+          if-no-files-found: ignore

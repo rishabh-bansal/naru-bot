@@ -1,0 +1,20 @@
+name = "naru-bot"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Conversation state — ephemeral per-chat
+# Create with: wrangler kv:namespace create CONV
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "CONV"
+id = "REPLACE_WITH_KV_ID"
+
+# Secrets set via: wrangler secret put NAME
+# - TELEGRAM_BOT_TOKEN
+# - SUPABASE_URL
+# - SUPABASE_KEY
+# - WEBHOOK_SECRET (random string you generate, also used in the Telegram webhook URL)
+
+[observability]
+enabled = true

@@ -1,0 +1,14 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.local
+*.log
+booker/logs/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.vscode/
+.idea/
+venv/
